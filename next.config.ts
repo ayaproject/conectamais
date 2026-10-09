@@ -5,6 +5,10 @@ import type { NextConfig } from "next";
 // Reavaliar quando existirem páginas públicas de catálogo (Fase 6).
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  experimental: {
+    // Documentos de verificação têm até 8 MB (src/domain/file-validation.ts) + margem do multipart.
+    serverActions: { bodySizeLimit: "9mb" },
+  },
   turbopack: {
     rules: {
       "*.css": {

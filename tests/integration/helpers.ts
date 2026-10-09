@@ -2,7 +2,9 @@ import { PrismaClient } from "@prisma/client";
 import { signUp } from "@/server/services/accounts";
 import { grantAdmin } from "@/server/services/admins";
 import { loadPrincipal } from "@/server/services/principal";
-import type { AdminPermission } from "@/domain/permissions";
+import type { AdminPermission, Principal } from "@/domain/permissions";
+import type { FileStorage } from "@/server/storage";
+import { uploadOwnDocument } from "@/server/services/verification";
 
 export const db = new PrismaClient({
   datasourceUrl: process.env.TEST_DATABASE_URL ?? "postgresql://conecta:conecta_dev@localhost:5432/conecta_test",
@@ -10,7 +12,7 @@ export const db = new PrismaClient({
 
 export async function resetDb() {
   await db.$executeRawUnsafe(
-    `TRUNCATE audit_logs, provider_status_history, provider_profiles, sessions, user_admin_permissions, user_roles, users CASCADE`,
+    `TRUNCATE audit_logs, verification_badge_events, verification_documents, provider_status_history, provider_profiles, sessions, user_admin_permissions, user_roles, users CASCADE`,
   );
 }
 
@@ -38,3 +40,28 @@ export const COMPLETE_PROFILE = {
   website: "",
   googleBusinessUrl: "",
 };
+
+// Armazenamento em memória para testes.
+export class MemoryStorage implements FileStorage {
+  files = new Map<string, Buffer>();
+  async put(key: string, bytes: Uint8Array) {
+    if (this.files.has(key)) throw new Error("já existe");
+    this.files.set(key, Buffer.from(bytes));
+  }
+  async get(key: string) {
+    const f = this.files.get(key);
+    if (!f) throw new Error("não encontrado");
+    return f;
+  }
+  async delete(key: string) {
+    this.files.delete(key);
+  }
+}
+
+export const storage = new MemoryStorage();
+
+export const PDF = new Uint8Array(Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"));
+
+export function uploadDoc(principal: Principal, requirement: string, type: string, bytes: Uint8Array = PDF) {
+  return uploadOwnDocument(db, storage, principal, { requirement, type, fileName: "doc.pdf", bytes });
+}

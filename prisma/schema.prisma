@@ -24,8 +24,36 @@ enum Role {
 enum AdminPermission {
   APPROVE_PROVIDERS
   SUSPEND_PROVIDERS
+  VERIFY_DOCUMENTS
   READ_AUDIT_LOG
   MANAGE_ADMINS
+}
+
+// Tipos de documento de verificação. As exigências por tipo de cadastro ficam em
+// src/domain/verification.ts.
+enum DocumentType {
+  RG
+  CNH
+  CNPJ_CARD // comprovante de inscrição no CNPJ
+  COMPANY_ACT // contrato social, requerimento de empresário ou CCMEI
+}
+
+// A quem o documento se refere: a pessoa (prestador ou dono da empresa) ou a empresa.
+enum DocumentSubject {
+  PERSON
+  COMPANY
+}
+
+enum DocumentStatus {
+  PENDING // aguardando análise
+  ACCEPTED
+  REJECTED
+  SUPERSEDED // substituído por um envio mais novo
+}
+
+enum BadgeDecision {
+  GRANTED
+  REVOKED
 }
 
 enum ProviderStatus {
@@ -55,8 +83,10 @@ model User {
   adminPermissions UserAdminPermission[]
   sessions         Session[]
   providerProfile  ProviderProfile?
-  auditLogs        AuditLog[]              @relation("AuditActor")
-  statusChanges    ProviderStatusHistory[] @relation("StatusActor")
+  auditLogs        AuditLog[]               @relation("AuditActor")
+  statusChanges    ProviderStatusHistory[]  @relation("StatusActor")
+  documentReviews  VerificationDocument[]   @relation("DocumentReviewer")
+  badgeDecisions   VerificationBadgeEvent[] @relation("BadgeActor")
 
   @@map("users")
 }
@@ -110,11 +140,16 @@ model ProviderProfile {
   status            ProviderStatus @default(DRAFT)
   submittedAt       DateTime?
   reviewedAt        DateTime?
+  // Selo de verificação documental. Não é garantia de qualidade do serviço.
+  verifiedAt        DateTime?
+  verifiedUntil     DateTime?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
-  user          User                    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user          User                     @relation(fields: [userId], references: [id], onDelete: Restrict)
   statusHistory ProviderStatusHistory[]
+  documents     VerificationDocument[]
+  badgeHistory  VerificationBadgeEvent[]
 
   @@index([status, submittedAt])
   @@map("provider_profiles")
@@ -152,4 +187,47 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([actorId, createdAt])
   @@map("audit_logs")
+}
+
+// Documento enviado para verificação. O arquivo fica em armazenamento privado;
+// aqui ficam só metadados. Nunca é exibido publicamente.
+model VerificationDocument {
+  id           String          @id @default(cuid())
+  providerId   String
+  type         DocumentType
+  subject      DocumentSubject
+  storageKey   String          @unique
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  sha256       String
+  status       DocumentStatus  @default(PENDING)
+  reviewNote   String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  uploadedAt   DateTime        @default(now())
+
+  provider   ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  reviewedBy User?           @relation("DocumentReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@index([providerId, subject, status])
+  @@map("verification_documents")
+}
+
+// Histórico do selo: cada concessão ou remoção, com critérios, responsável e validade.
+model VerificationBadgeEvent {
+  id         String        @id @default(cuid())
+  providerId String
+  decision   BadgeDecision
+  criteria   Json // documentos aceitos considerados na decisão
+  validUntil DateTime?
+  note       String?
+  actorId    String
+  createdAt  DateTime      @default(now())
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  actor    User            @relation("BadgeActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([providerId, createdAt])
+  @@map("verification_badge_events")
 }

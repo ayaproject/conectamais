@@ -10,6 +10,7 @@ import {
   type ProviderStatus,
 } from "@/domain/provider-status";
 import { missingForSubmission, providerProfileSchema, type ProviderProfileInput } from "@/domain/provider-profile";
+import { allDocumentsAccepted, documentsReadyForSubmission } from "@/domain/verification";
 
 const ADMIN_ACTION_PERMISSION: Partial<Record<ProviderAction, AdminPermission>> = {
   APPROVE: "APPROVE_PROVIDERS",
@@ -94,13 +95,24 @@ async function applyTransition(
       );
     }
 
-    if (args.action === "SUBMIT") {
-      const missing = missingForSubmission({
-        ...profile,
-        website: profile.website ?? "",
-        googleBusinessUrl: profile.googleBusinessUrl ?? "",
+    if (args.action === "SUBMIT" || args.action === "APPROVE") {
+      const docs = await tx.verificationDocument.findMany({
+        where: { providerId: profile.id, status: { not: "SUPERSEDED" } },
+        select: { type: true, subject: true, status: true, uploadedAt: true },
       });
-      if (missing.length) throw new DomainError("INVALID_INPUT", `Complete o perfil antes de enviar: ${missing.join(" ")}`);
+      if (args.action === "SUBMIT") {
+        const missing = [
+          ...missingForSubmission({
+            ...profile,
+            website: profile.website ?? "",
+            googleBusinessUrl: profile.googleBusinessUrl ?? "",
+          }),
+          ...documentsReadyForSubmission(profile.kind, docs),
+        ];
+        if (missing.length) throw new DomainError("INVALID_INPUT", `Complete o cadastro antes de enviar: ${missing.join(" ")}`);
+      } else if (!allDocumentsAccepted(profile.kind, docs)) {
+        throw new DomainError("INVALID_TRANSITION", "Aceite todos os documentos exigidos antes de aprovar o cadastro.");
+      }
     }
 
     const now = new Date();
@@ -163,7 +175,7 @@ export async function adminDecideProvider(
 }
 
 function requireAnyProviderAdmin(principal: Principal) {
-  if (!hasPermission(principal, "APPROVE_PROVIDERS") && !hasPermission(principal, "SUSPEND_PROVIDERS")) {
+  if (!(["APPROVE_PROVIDERS", "SUSPEND_PROVIDERS", "VERIFY_DOCUMENTS"] as const).some((perm) => hasPermission(principal, perm))) {
     throw new DomainError("FORBIDDEN", "Você não tem permissão para acessar os cadastros de prestadores.");
   }
 }
