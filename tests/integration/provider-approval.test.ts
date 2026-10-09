@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { db, resetDb, makeUser, COMPLETE_PROFILE } from "./helpers";
+import { db, resetDb, makeUser, COMPLETE_PROFILE, uploadDoc } from "./helpers";
+import { reviewDocument } from "@/server/services/verification";
 import {
   adminDecideProvider,
   getProviderForAdmin,
@@ -16,9 +17,16 @@ afterAll(() => db.$disconnect());
 async function submittedProvider() {
   const p = await makeUser({ provider: true });
   await updateOwnProviderProfile(db, p.principal, COMPLETE_PROFILE);
+  const documentId = await uploadDoc(p.principal, "PERSON_ID", "RG");
   await submitOwnProviderProfile(db, p.principal);
   const profile = await db.providerProfile.findUniqueOrThrow({ where: { userId: p.user.id } });
-  return { ...p, profileId: profile.id };
+  return { ...p, profileId: profile.id, documentId };
+}
+
+async function acceptAll(profileId: string) {
+  const reviewer = await makeUser({ admin: ["VERIFY_DOCUMENTS"] });
+  const docs = await db.verificationDocument.findMany({ where: { providerId: profileId, status: "PENDING" } });
+  for (const d of docs) await reviewDocument(db, reviewer.principal, d.id, "ACCEPT");
 }
 
 describe("contas", () => {
@@ -86,6 +94,7 @@ describe("aprovação administrativa", () => {
     await adminDecideProvider(db, admin.principal, p.profileId, "REQUEST_CHANGES", "Detalhe melhor os serviços.");
     await updateOwnProviderProfile(db, p.principal, { ...COMPLETE_PROFILE, description: COMPLETE_PROFILE.description + " Orçamento grátis." });
     await submitOwnProviderProfile(db, p.principal);
+    await acceptAll(p.profileId);
     await adminDecideProvider(db, admin.principal, p.profileId, "APPROVE");
 
     const profile = await getProviderForAdmin(db, admin.principal, p.profileId);
@@ -118,6 +127,7 @@ describe("aprovação administrativa", () => {
   it("permissão de aprovar não permite suspender", async () => {
     const p = await submittedProvider();
     const admin = await makeUser({ admin: ["APPROVE_PROVIDERS"] });
+    await acceptAll(p.profileId);
     await adminDecideProvider(db, admin.principal, p.profileId, "APPROVE");
     await expect(adminDecideProvider(db, admin.principal, p.profileId, "SUSPEND", "x")).rejects.toMatchObject({
       code: "FORBIDDEN",
@@ -154,6 +164,7 @@ describe("aprovação administrativa", () => {
     const p = await submittedProvider();
     const a1 = await makeUser({ admin: ["APPROVE_PROVIDERS"] });
     const a2 = await makeUser({ admin: ["APPROVE_PROVIDERS"] });
+    await acceptAll(p.profileId);
     const results = await Promise.allSettled([
       adminDecideProvider(db, a1.principal, p.profileId, "APPROVE"),
       adminDecideProvider(db, a2.principal, p.profileId, "REJECT", "Documentação insuficiente"),

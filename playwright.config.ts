@@ -18,6 +18,10 @@ export default defineConfig({
     url: `http://localhost:${PORT}`,
     timeout: 240_000,
     reuseExistingServer: false,
-    env: { DATABASE_URL: E2E_DB },
+    env: {
+      DATABASE_URL: E2E_DB,
+      STORAGE_LOCAL_DIR: ".storage/e2e",
+      ALLOW_LOCAL_STORAGE_IN_PRODUCTION: "true",
+    },
   },
 });

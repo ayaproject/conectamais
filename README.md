@@ -2,7 +2,7 @@
 
 Plataforma de contratação de serviços que conecta clientes a prestadores analisados pela equipe.
 
-> Estado atual: **primeira entrega** (contas, papéis e aprovação de prestadores).
+> Estado atual: contas, papéis, aprovação de prestadores, documentos de verificação e selo de verificado.
 > Busca, catálogo, contratações e pagamentos ainda **não existem**. Veja [docs/status.md](docs/status.md).
 
 ## Stack
@@ -20,7 +20,7 @@ docker run -d --name conecta-pg -e POSTGRES_USER=conecta -e POSTGRES_PASSWORD=co
 docker exec conecta-pg createdb -U conecta conecta_test
 docker exec conecta-pg createdb -U conecta conecta_e2e_test
 
-cp .env.example .env        # ajuste DATABASE_URL
+cp .env.example .env        # ajuste DATABASE_URL (documentos ficam em .storage/private)
 npm install
 npm run db:migrate          # aplica as migrações no banco de desenvolvimento
 npm run dev                 # http://localhost:3000
@@ -32,10 +32,10 @@ Não existe cadastro público de administrador. Crie a conta pelo site e conceda
 (fica registrado na auditoria):
 
 ```bash
-npm run admin:grant -- voce@exemplo.com APPROVE_PROVIDERS SUSPEND_PROVIDERS
+npm run admin:grant -- voce@exemplo.com APPROVE_PROVIDERS SUSPEND_PROVIDERS VERIFY_DOCUMENTS
 ```
 
-Permissões disponíveis: `APPROVE_PROVIDERS`, `SUSPEND_PROVIDERS`, `READ_AUDIT_LOG`, `MANAGE_ADMINS`.
+Permissões disponíveis: `APPROVE_PROVIDERS`, `SUSPEND_PROVIDERS`, `VERIFY_DOCUMENTS` (analisar documentos e conceder o selo), `READ_AUDIT_LOG`, `MANAGE_ADMINS`.
 
 ## Testes
 

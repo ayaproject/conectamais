@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/status-badge";
 export const metadata: Metadata = { title: "Cadastros de prestadores", robots: { index: false } };
 
 export default async function Page({ searchParams }: PageProps<"/admin/prestadores">) {
-  const principal = await requireAnyPermission("APPROVE_PROVIDERS", "SUSPEND_PROVIDERS");
+  const principal = await requireAnyPermission("APPROVE_PROVIDERS", "SUSPEND_PROVIDERS", "VERIFY_DOCUMENTS");
   const query = await searchParams;
   const raw = query.status;
   const status: ProviderStatus = PROVIDER_STATUSES.includes(raw as ProviderStatus) ? (raw as ProviderStatus) : "IN_REVIEW";

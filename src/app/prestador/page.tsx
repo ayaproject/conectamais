@@ -5,6 +5,9 @@ import { getOwnProviderProfile } from "@/server/services/providers";
 import { canEditProfile, PROVIDER_STATUS_LABELS, PROVIDER_TRANSITIONS } from "@/domain/provider-status";
 import { StatusBadge } from "@/components/status-badge";
 import { DeactivateForm, ProfileForm, SubmitForReviewForm } from "./profile-form";
+import { DocumentsSection } from "./documents";
+import { getOwnVerification } from "@/server/services/verification";
+import { VerifiedBadge } from "@/components/document-status";
 
 export const metadata: Metadata = { title: "Área do prestador" };
 
@@ -22,6 +25,7 @@ export default async function Page() {
   const principal = await requireRole("PROVIDER");
   const profile = await getOwnProviderProfile(db, principal);
   const editable = canEditProfile(profile.status);
+  const verification = await getOwnVerification(db, principal);
   const lastRequest = profile.statusHistory.find((h) => h.toStatus === "CHANGES_REQUESTED" && h.reason);
 
   return (
@@ -29,6 +33,7 @@ export default async function Page() {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold">Área do prestador</h1>
         <StatusBadge status={profile.status} />
+        {verification.badgeActive && verification.verifiedUntil && <VerifiedBadge until={verification.verifiedUntil} />}
       </div>
       <p className="text-slate-600">{STATUS_HELP[profile.status]}</p>
 
@@ -41,13 +46,35 @@ export default async function Page() {
       <section className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
         <h2 className="mb-4 text-lg font-semibold">Perfil profissional</h2>
         <ProfileForm profile={profile} editable={editable} />
-        {PROVIDER_TRANSITIONS.SUBMIT.from.includes(profile.status) && (
-          <div className="mt-6 border-t border-slate-200 pt-4">
-            <p className="mb-2 text-sm text-slate-600">Salve o rascunho antes de enviar.</p>
-            <SubmitForReviewForm />
-          </div>
-        )}
       </section>
+
+      <section className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <h2 className="text-lg font-semibold">Documentos para verificação</h2>
+        <p className="mb-4 mt-1 text-sm text-slate-600">
+          {profile.kind === "COMPANY"
+            ? "Para empresas pedimos os documentos da empresa e o documento de identidade do dono ou responsável."
+            : "Envie um documento de identidade com foto."}{" "}
+          Os documentos são vistos apenas pela equipe de análise e nunca aparecem no seu perfil público.
+          {editable && " Se mudar o tipo de cadastro, salve o perfil para atualizar esta lista."}
+        </p>
+        <DocumentsSection
+          editable={editable}
+          items={verification.items.map(({ requirement, document }) => ({
+            key: requirement.key,
+            label: requirement.label,
+            acceptedTypes: requirement.acceptedTypes,
+            document,
+          }))}
+        />
+      </section>
+
+      {PROVIDER_TRANSITIONS.SUBMIT.from.includes(profile.status) && (
+        <section className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+          <h2 className="mb-2 text-lg font-semibold">Enviar para análise</h2>
+          <p className="mb-3 text-sm text-slate-600">Salve o perfil e envie todos os documentos antes de enviar.</p>
+          <SubmitForReviewForm />
+        </section>
+      )}
 
       {profile.statusHistory.length > 0 && (
         <section className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
