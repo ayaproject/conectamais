@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Conecta+
 
-## Getting Started
+Plataforma de contratação de serviços que conecta clientes a prestadores analisados pela equipe.
 
-First, run the development server:
+> Estado atual: **primeira entrega** (contas, papéis e aprovação de prestadores).
+> Busca, catálogo, contratações e pagamentos ainda **não existem**. Veja [docs/status.md](docs/status.md).
+
+## Stack
+
+Next.js 16 (App Router, TypeScript) · PostgreSQL · Prisma 6 · Zod · Tailwind 4 · Vitest · Playwright.
+Hospedagem prevista: Vercel (app) e Supabase (Postgres e armazenamento de arquivos). Ver [ADR 0001](docs/adr/0001-stack.md).
+
+## Rodando localmente
+
+Pré-requisitos: Node 22+ e PostgreSQL 16 (instalado ou via Docker).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Postgres via Docker (opcional)
+docker run -d --name conecta-pg -e POSTGRES_USER=conecta -e POSTGRES_PASSWORD=conecta_dev -p 5432:5432 postgres:16
+docker exec conecta-pg createdb -U conecta conecta_test
+docker exec conecta-pg createdb -U conecta conecta_e2e_test
+
+cp .env.example .env        # ajuste DATABASE_URL
+npm install
+npm run db:migrate          # aplica as migrações no banco de desenvolvimento
+npm run dev                 # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Primeiro administrador
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Não existe cadastro público de administrador. Crie a conta pelo site e conceda as permissões pela linha de comando
+(fica registrado na auditoria):
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run admin:grant -- voce@exemplo.com APPROVE_PROVIDERS SUSPEND_PROVIDERS
+```
 
-## Learn More
+Permissões disponíveis: `APPROVE_PROVIDERS`, `SUSPEND_PROVIDERS`, `READ_AUDIT_LOG`, `MANAGE_ADMINS`.
 
-To learn more about Next.js, take a look at the following resources:
+## Testes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run lint
+npm run typecheck
+npm run test:unit          # regras de negócio puras
+npm run test:integration   # serviços contra o banco conecta_test (TEST_DATABASE_URL)
+npm run test:e2e           # fluxo completo no navegador (desktop e celular), banco conecta_e2e_test
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Estrutura
 
-## Deploy on Vercel
+```
+src/domain/          regras puras (máquina de estados, permissões, validação de perfil)
+src/server/          acesso a dados e regras com banco (somente servidor)
+  auth/              senhas (scrypt), tokens e sessão em cookie
+  services/          contas, prestadores, administradores
+src/app/             páginas e server actions (camada fina sobre os serviços)
+prisma/              schema e migrações versionadas
+tests/               unit, integration, e2e
+docs/                plano, decisões de arquitetura e status
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Documentação
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Diagnóstico e plano (Fase 1)](docs/01-diagnostico-e-plano.md)
+- [Status e pendências](docs/status.md)
+- [Regras de negócio implementadas](docs/regras-cadastro-prestador.md)
+- [Decisões de arquitetura](docs/adr/)

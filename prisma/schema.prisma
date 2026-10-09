@@ -1,0 +1,155 @@
+// Modelo de dados do Conecta+.
+// Esta versão cobre a primeira entrega: contas, papéis, sessões,
+// perfil de prestador, aprovação administrativa e auditoria.
+// As demais entidades do plano (catálogo, contratações, financeiro...)
+// entram nas fases seguintes, cada uma com sua migração.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CLIENT
+  PROVIDER
+  ADMIN
+}
+
+// Permissões administrativas finas (menor privilégio).
+// Ter o papel ADMIN sem nenhuma permissão não dá acesso a operação alguma.
+enum AdminPermission {
+  APPROVE_PROVIDERS
+  SUSPEND_PROVIDERS
+  READ_AUDIT_LOG
+  MANAGE_ADMINS
+}
+
+enum ProviderStatus {
+  DRAFT
+  IN_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum ProviderKind {
+  INDIVIDUAL // pessoa física
+  COMPANY // pessoa jurídica (MEI ou empresa)
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  roles            UserRole[]
+  adminPermissions UserAdminPermission[]
+  sessions         Session[]
+  providerProfile  ProviderProfile?
+  auditLogs        AuditLog[]              @relation("AuditActor")
+  statusChanges    ProviderStatusHistory[] @relation("StatusActor")
+
+  @@map("users")
+}
+
+model UserRole {
+  userId    String
+  role      Role
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, role])
+  @@map("user_roles")
+}
+
+model UserAdminPermission {
+  userId     String
+  permission AdminPermission
+  grantedAt  DateTime        @default(now())
+  grantedBy  String? // null quando concedida pelo script de bootstrap
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, permission])
+  @@map("user_admin_permissions")
+}
+
+// Sessões no banco: o cookie guarda um token aleatório; aqui fica só o hash SHA-256.
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model ProviderProfile {
+  id                String         @id @default(cuid())
+  userId            String         @unique
+  kind              ProviderKind   @default(INDIVIDUAL)
+  legalName         String         @default("") // nome completo ou razão social (privado)
+  displayName       String         @default("") // nome profissional ou fantasia (público)
+  description       String         @default("")
+  experience        String         @default("")
+  city              String         @default("")
+  state             String         @default("") // UF
+  website           String?
+  googleBusinessUrl String?
+  status            ProviderStatus @default(DRAFT)
+  submittedAt       DateTime?
+  reviewedAt        DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  user          User                    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  statusHistory ProviderStatusHistory[]
+
+  @@index([status, submittedAt])
+  @@map("provider_profiles")
+}
+
+// Histórico imutável de cada mudança de status do cadastro.
+model ProviderStatusHistory {
+  id         String         @id @default(cuid())
+  providerId String
+  fromStatus ProviderStatus
+  toStatus   ProviderStatus
+  reason     String?
+  actorId    String
+  createdAt  DateTime       @default(now())
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  actor    User            @relation("StatusActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([providerId, createdAt])
+  @@map("provider_status_history")
+}
+
+// Registro de auditoria append-only. Não guarda senhas, tokens nem documentos.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String? // null para ações do sistema (scripts)
+  action     String
+  entityType String
+  entityId   String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
+}
