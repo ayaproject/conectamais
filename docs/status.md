@@ -1,6 +1,6 @@
 # Status da implementação
 
-Atualizado em 2026-10-09 (documentos e selo).
+Atualizado em 2026-10-09 (catálogo, serviços e busca).
 
 ## Concluído e validado
 
@@ -17,18 +17,26 @@ Atualizado em 2026-10-09 (documentos e selo).
 | Validação de arquivo pelo conteúdo, limite de 8 MB, acesso restrito e auditado | testes unitários, de integração + e2e (anônimo recebe 404) |
 | Análise de documentos e aprovação condicionada aos documentos aceitos | testes de integração + e2e |
 | Selo de prestador verificado com validade, critérios e histórico | testes de integração + e2e |
+| Categorias (com subcategorias) e cidades atendidas, geridas pelo admin; catálogo inicial de Imbituba, Garopaba e região | testes de integração + e2e |
+| Cadastro, edição, publicação e pausa de serviços por prestador aprovado (preço fixo ou sob orçamento) | testes unitários, de integração + e2e |
+| Serviço some da busca quando o prestador é suspenso ou a categoria é desativada | testes de integração |
+| Moderação de serviços com motivo obrigatório e auditoria | testes de integração + e2e (lista) |
+| Busca com texto (sem acento), categoria, cidade, preço máximo, modalidade, só verificados e paginação | testes de integração + e2e |
+| Páginas públicas de serviço e categoria, JSON-LD, canônico, sitemap e robots | e2e |
 | Layout responsivo | e2e em viewport de celular (Pixel 7) |
 
 ## Ainda não implementado (próximas etapas)
 
 - Renovação do selo antes do vencimento e aviso ao prestador (depende de notificações).
-- Categorias, serviços e busca (Fase 6).
+- Fotos dos serviços (dependem de armazenamento público de imagens).
+- Página pública do prestador com todos os seus serviços.
 - Contratação, orçamentos, propostas, mensagens (Fases 7–8).
 - Pagamentos, comissão e repasses (Fase 9) — depende da escolha do provedor e de validação jurídica.
 - Avaliações, recomendações, notificações por e-mail, SEO (Fases 10–12).
 
 ## Pendências antes de produção
 
+- Definir `SITE_URL` com o domínio real (links canônicos e sitemap).
 - Bucket privado (Supabase Storage) para documentos: o armazenamento local é recusado em produção (ADR 0003).
 - Política de retenção dos documentos (por quanto tempo guardar após aprovação ou desativação).
 

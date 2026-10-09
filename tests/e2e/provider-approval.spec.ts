@@ -83,4 +83,53 @@ test("prestador se cadastra, envia para análise e é aprovado pelo admin", asyn
   await provider.reload();
   await expect(provider.getByText("Aprovado", { exact: true }).first()).toBeVisible();
   await expect(provider.getByText("Documentos verificados")).toBeVisible();
+
+  // Prestador aprovado cadastra e publica um serviço
+  await provider.getByRole("link", { name: "Meus serviços" }).click();
+  await provider.getByRole("link", { name: "Novo serviço" }).click();
+  const title = `Pintura de apartamento ${run}`;
+  await provider.getByLabel("Título").fill(title);
+  await provider.getByLabel("Categoria").selectOption({ label: "Pintura" });
+  await provider.getByLabel("Descrição").fill("Pintura interna completa com preparação, massa corrida e acabamento.");
+  await provider.getByLabel("Valor (R$)").fill("1.500,00");
+  await provider.getByLabel("Unidade").selectOption("PER_SERVICE");
+  await provider.getByRole("checkbox", { name: "Garopaba/SC" }).check();
+  await provider.getByRole("button", { name: "Salvar como rascunho" }).click();
+  await expect(provider.getByRole("status").filter({ hasText: "Serviço salvo" })).toBeVisible();
+  await provider.getByRole("button", { name: "Publicar" }).click();
+  await expect(provider.getByRole("status").filter({ hasText: "Serviço publicado" })).toBeVisible();
+
+  // Visitante encontra o serviço na busca e abre a página pública
+  const visitor = await (await browser.newContext()).newPage();
+  await visitor.goto("/");
+  await visitor.getByLabel("O que você precisa?").fill(`pintura ${run}`);
+  await visitor.getByLabel("Cidade").selectOption({ label: "Garopaba/SC" });
+  await visitor.getByRole("button", { name: "Buscar" }).click();
+  await expect(visitor).toHaveURL(/\/servicos\?/);
+  await visitor.getByRole("link", { name: title }).click();
+  await expect(visitor.getByRole("heading", { level: 1, name: title })).toBeVisible();
+  await expect(visitor.getByText(/1\.500,00 por serviço/)).toBeVisible();
+  await expect(visitor.getByText("Documentos verificados").first()).toBeVisible();
+  await expect(visitor.getByText("Maria da Silva")).toHaveCount(0); // nome civil nunca aparece
+  const ld = JSON.parse((await visitor.locator('script[type="application/ld+json"]').textContent()) ?? "{}");
+  expect(ld["@type"]).toBe("Service");
+
+  // Sitemap lista o serviço publicado; robots fecha as áreas privadas
+  const slug = new URL(visitor.url()).pathname;
+  expect(await (await visitor.request.get("/sitemap.xml")).text()).toContain(slug);
+  expect(await (await visitor.request.get("/robots.txt")).text()).toContain("Disallow: /admin");
+
+  // Admin com permissões de catálogo e moderação vê as novas áreas
+  execSync(`npx tsx scripts/grant-admin.ts ${adminEmail} MANAGE_CATALOG MODERATE_SERVICES`, { env: { ...process.env, DATABASE_URL: E2E_DB } });
+  await client.goto("/admin");
+  await client.getByRole("navigation", { name: "Administração" }).getByRole("link", { name: "Categorias e cidades" }).click();
+  await expect(client.getByRole("listitem").filter({ hasText: /^Higienização/ })).toBeVisible();
+  await expect(client.getByRole("listitem").filter({ hasText: /^Imbituba\/SC/ })).toBeVisible();
+  await client.getByRole("navigation", { name: "Administração" }).getByRole("link", { name: "Serviços" }).click();
+  await expect(client.getByRole("link", { name: title })).toBeVisible();
+
+  // Filtro sem resultado mostra estado vazio honesto
+  await visitor.goto(`/servicos?q=${encodeURIComponent(`pintura ${run}`)}&cidade=laguna-sc`);
+  await expect(visitor.getByText("Nenhum serviço encontrado")).toBeVisible();
 });
+

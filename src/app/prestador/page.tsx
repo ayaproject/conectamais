@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { db } from "@/server/db";
 import { requireRole } from "@/server/auth/session";
@@ -15,7 +16,7 @@ const STATUS_HELP = {
   DRAFT: "Preencha seu perfil, salve e envie para análise.",
   IN_REVIEW: "Seu cadastro está com a nossa equipe. Você será avisado aqui quando houver uma decisão.",
   CHANGES_REQUESTED: "A equipe pediu ajustes. Corrija os pontos indicados abaixo e envie novamente.",
-  APPROVED: "Cadastro aprovado. A publicação de serviços será liberada na próxima etapa da plataforma.",
+  APPROVED: "Cadastro aprovado. Cadastre seus serviços e publique para aparecer na busca.",
   REJECTED: "Seu cadastro não foi aprovado. Veja o motivo no histórico abaixo.",
   SUSPENDED: "Seu cadastro está suspenso. Veja o motivo no histórico abaixo.",
   DEACTIVATED: "Este cadastro foi desativado.",
@@ -36,6 +37,11 @@ export default async function Page() {
         {verification.badgeActive && verification.verifiedUntil && <VerifiedBadge until={verification.verifiedUntil} />}
       </div>
       <p className="text-slate-600">{STATUS_HELP[profile.status]}</p>
+      {profile.status === "APPROVED" && (
+        <Link href="/prestador/servicos" className="inline-block rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800">
+          Meus serviços
+        </Link>
+      )}
 
       {profile.status === "CHANGES_REQUESTED" && lastRequest && (
         <div role="note" className="rounded-md border border-orange-200 bg-orange-50 p-4 text-sm text-orange-900">

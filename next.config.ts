@@ -2,7 +2,8 @@ import type { NextConfig } from "next";
 
 // cacheComponents/partialPrefetching (padrão do template) ficam desligados por enquanto:
 // quase todas as telas desta etapa dependem da sessão e são dinâmicas.
-// Reavaliar quando existirem páginas públicas de catálogo (Fase 6).
+// As páginas públicas do catálogo (Fase 6) também ficam dinâmicas: o cabeçalho lê a sessão e
+// a busca depende dos filtros. Cache fica para quando houver volume que justifique.
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   experimental: {

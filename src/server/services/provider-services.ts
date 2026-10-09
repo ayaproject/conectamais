@@ -64,10 +64,11 @@ function serviceData(d: ReturnType<typeof parseService>) {
   };
 }
 
+// Autorização antes da validação: quem não pode cadastrar não recebe detalhes do formulário.
 export async function createOwnService(db: Db, principal: Principal, input: unknown) {
-  const d = parseService(input);
   return db.$transaction(async (tx) => {
     const profile = await requireApprovedProvider(tx, principal);
+    const d = parseService(input);
     const cityIds = await checkReferences(tx, d.categoryId, d.cityIds);
     // Slug estável com sufixo aleatório: evita colisão e não muda ao editar o título.
     const slug = `${slugify(d.title) || "servico"}-${randomBytes(3).toString("hex")}`;
@@ -89,9 +90,9 @@ async function ownService(tx: Tx, principal: Principal, serviceId: string) {
 }
 
 export async function updateOwnService(db: Db, principal: Principal, serviceId: string, input: unknown) {
-  const d = parseService(input);
   return db.$transaction(async (tx) => {
     const service = await ownService(tx, principal, serviceId);
+    const d = parseService(input);
     if (!canOwnerEditService(service.status)) throw new DomainError("FORBIDDEN", "Este serviço foi removido pela moderação.");
     const cityIds = await checkReferences(tx, d.categoryId, d.cityIds);
     const res = await tx.service.updateMany({ where: { id: service.id, status: service.status }, data: serviceData(d) });

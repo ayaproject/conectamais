@@ -110,3 +110,47 @@ export function searchTokens(q: string): string[] {
     .filter((t) => t.length >= 2)
     .slice(0, 8);
 }
+
+export function priceLabel(s: { pricingMode: "FIXED" | "QUOTE"; priceCents: number | null; priceUnit: PriceUnit | null }): string {
+  if (s.pricingMode === "FIXED" && s.priceCents !== null && s.priceUnit) {
+    return `${formatBRL(s.priceCents)} ${PRICE_UNIT_LABELS[s.priceUnit]}`;
+  }
+  return "Sob orçamento";
+}
+
+// Lê os filtros da URL de busca sem confiar em nada: valores inválidos são ignorados.
+export type SearchQuery = {
+  q: string;
+  category: string;
+  city: string;
+  maxPrice: string;
+  maxPriceCents?: number;
+  mode?: "FIXED" | "QUOTE";
+  verifiedOnly: boolean;
+  page: number;
+};
+
+const SLUG = /^[a-z0-9-]{1,100}$/;
+
+export function parseSearchQuery(raw: Record<string, string | string[] | undefined>): SearchQuery {
+  const one = (k: string) => {
+    const v = raw[k];
+    return (Array.isArray(v) ? v[0] : v ?? "").trim();
+  };
+  const category = one("categoria");
+  const city = one("cidade");
+  const maxPrice = one("preco_max");
+  const cents = maxPrice ? parseBRLToCents(maxPrice) : null;
+  const mode = one("modalidade");
+  const page = Number.parseInt(one("pagina"), 10);
+  return {
+    q: one("q").slice(0, 100),
+    category: SLUG.test(category) ? category : "",
+    city: SLUG.test(city) ? city : "",
+    maxPrice: cents !== null ? maxPrice : "",
+    maxPriceCents: cents ?? undefined,
+    mode: mode === "FIXED" || mode === "QUOTE" ? mode : undefined,
+    verifiedOnly: one("verificados") === "1",
+    page: Number.isFinite(page) && page > 0 ? Math.min(page, 500) : 1,
+  };
+}
