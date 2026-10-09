@@ -14,7 +14,7 @@ export default defineConfig({
     { name: "celular", use: { ...devices["Pixel 7"] } },
   ],
   webServer: {
-    command: `npx prisma migrate deploy && npx next build && npx next start -p ${PORT}`,
+    command: `npx prisma migrate deploy && npm run db:seed && npx next build && npx next start -p ${PORT}`,
     url: `http://localhost:${PORT}`,
     timeout: 240_000,
     reuseExistingServer: false,

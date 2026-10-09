@@ -5,6 +5,7 @@ import { loadPrincipal } from "@/server/services/principal";
 import type { AdminPermission, Principal } from "@/domain/permissions";
 import type { FileStorage } from "@/server/storage";
 import { uploadOwnDocument } from "@/server/services/verification";
+import { seedCatalog } from "@/server/catalog-seed";
 
 export const db = new PrismaClient({
   datasourceUrl: process.env.TEST_DATABASE_URL ?? "postgresql://conecta:conecta_dev@localhost:5432/conecta_test",
@@ -12,8 +13,9 @@ export const db = new PrismaClient({
 
 export async function resetDb() {
   await db.$executeRawUnsafe(
-    `TRUNCATE audit_logs, verification_badge_events, verification_documents, provider_status_history, provider_profiles, sessions, user_admin_permissions, user_roles, users CASCADE`,
+    `TRUNCATE service_cities, services, categories, cities, audit_logs, verification_badge_events, verification_documents, provider_status_history, provider_profiles, sessions, user_admin_permissions, user_roles, users CASCADE`,
   );
+  await seedCatalog(db);
 }
 
 let n = 0;
@@ -64,4 +66,20 @@ export const PDF = new Uint8Array(Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrai
 
 export function uploadDoc(principal: Principal, requirement: string, type: string, bytes: Uint8Array = PDF) {
   return uploadOwnDocument(db, storage, principal, { requirement, type, fileName: "doc.pdf", bytes });
+}
+
+// Prestador aprovado (perfil completo, documento aceito e aprovação do admin).
+export async function approvedProvider(displayName = "Maria Pinturas") {
+  const { updateOwnProviderProfile, submitOwnProviderProfile, adminDecideProvider } = await import("@/server/services/providers");
+  const { reviewDocument } = await import("@/server/services/verification");
+  const p = await makeUser({ provider: true });
+  await updateOwnProviderProfile(db, p.principal, { ...COMPLETE_PROFILE, displayName });
+  await uploadDoc(p.principal, "PERSON_ID", "RG");
+  await submitOwnProviderProfile(db, p.principal);
+  const profile = await db.providerProfile.findUniqueOrThrow({ where: { userId: p.user.id } });
+  const admin = await makeUser({ admin: ["VERIFY_DOCUMENTS", "APPROVE_PROVIDERS", "SUSPEND_PROVIDERS"] });
+  const docs = await db.verificationDocument.findMany({ where: { providerId: profile.id, status: "PENDING" } });
+  for (const d of docs) await reviewDocument(db, admin.principal, d.id, "ACCEPT");
+  await adminDecideProvider(db, admin.principal, profile.id, "APPROVE", "");
+  return { ...p, profileId: profile.id, admin };
 }

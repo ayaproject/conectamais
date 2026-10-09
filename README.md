@@ -23,6 +23,7 @@ docker exec conecta-pg createdb -U conecta conecta_e2e_test
 cp .env.example .env        # ajuste DATABASE_URL (documentos ficam em .storage/private)
 npm install
 npm run db:migrate          # aplica as migrações no banco de desenvolvimento
+npm run db:seed             # categorias e cidades iniciais (pode rodar de novo sem duplicar)
 npm run dev                 # http://localhost:3000
 ```
 
@@ -35,7 +36,7 @@ Não existe cadastro público de administrador. Crie a conta pelo site e conceda
 npm run admin:grant -- voce@exemplo.com APPROVE_PROVIDERS SUSPEND_PROVIDERS VERIFY_DOCUMENTS
 ```
 
-Permissões disponíveis: `APPROVE_PROVIDERS`, `SUSPEND_PROVIDERS`, `VERIFY_DOCUMENTS` (analisar documentos e conceder o selo), `READ_AUDIT_LOG`, `MANAGE_ADMINS`.
+Permissões disponíveis: `APPROVE_PROVIDERS`, `SUSPEND_PROVIDERS`, `VERIFY_DOCUMENTS` (analisar documentos e conceder o selo), `MANAGE_CATALOG` (categorias e cidades), `MODERATE_SERVICES` (remover serviços publicados), `READ_AUDIT_LOG`, `MANAGE_ADMINS`.
 
 ## Testes
 
@@ -65,4 +66,5 @@ docs/                plano, decisões de arquitetura e status
 - [Diagnóstico e plano (Fase 1)](docs/01-diagnostico-e-plano.md)
 - [Status e pendências](docs/status.md)
 - [Regras de negócio implementadas](docs/regras-cadastro-prestador.md)
+- [Catálogo, serviços e busca](docs/busca.md)
 - [Decisões de arquitetura](docs/adr/)

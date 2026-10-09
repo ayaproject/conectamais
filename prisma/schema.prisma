@@ -25,6 +25,8 @@ enum AdminPermission {
   APPROVE_PROVIDERS
   SUSPEND_PROVIDERS
   VERIFY_DOCUMENTS
+  MANAGE_CATALOG // categorias e cidades atendidas
+  MODERATE_SERVICES
   READ_AUDIT_LOG
   MANAGE_ADMINS
 }
@@ -49,6 +51,24 @@ enum DocumentStatus {
   ACCEPTED
   REJECTED
   SUPERSEDED // substituído por um envio mais novo
+}
+
+enum PricingMode {
+  FIXED // preço definido
+  QUOTE // mediante orçamento
+}
+
+enum PriceUnit {
+  PER_SERVICE
+  PER_HOUR
+  PER_SQUARE_METER
+}
+
+enum ServiceStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED // pausado pelo prestador
+  REMOVED // removido pela moderação
 }
 
 enum BadgeDecision {
@@ -150,6 +170,7 @@ model ProviderProfile {
   statusHistory ProviderStatusHistory[]
   documents     VerificationDocument[]
   badgeHistory  VerificationBadgeEvent[]
+  services      Service[]
 
   @@index([status, submittedAt])
   @@map("provider_profiles")
@@ -230,4 +251,81 @@ model VerificationBadgeEvent {
 
   @@index([providerId, createdAt])
   @@map("verification_badge_events")
+}
+
+// Categorias e subcategorias (subcategoria = categoria com pai). Gerenciadas pelo admin;
+// nenhuma lista fixa no código. As iniciais vêm de prisma/seed.ts.
+model Category {
+  id          String   @id @default(cuid())
+  parentId    String?
+  name        String
+  slug        String   @unique
+  description String   @default("")
+  searchName  String // nome normalizado (minúsculo, sem acento) para a busca
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children Category[] @relation("CategoryTree")
+  services Service[]
+
+  @@index([parentId, sortOrder])
+  @@map("categories")
+}
+
+// Cidades atendidas pela plataforma. Lista gerenciada pelo admin.
+model City {
+  id        String   @id @default(cuid())
+  name      String
+  state     String // UF
+  slug      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  services ServiceCity[]
+
+  @@unique([name, state])
+  @@map("cities")
+}
+
+model Service {
+  id                String        @id @default(cuid())
+  providerId        String
+  categoryId        String
+  title             String
+  slug              String        @unique
+  description       String
+  pricingMode       PricingMode
+  priceCents        Int? // obrigatório quando FIXED
+  priceUnit         PriceUnit?
+  estimatedDuration String        @default("")
+  conditions        String        @default("")
+  status            ServiceStatus @default(DRAFT)
+  searchText        String // título + descrição normalizados para a busca
+  publishedAt       DateTime?
+  moderationNote    String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  category Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  cities   ServiceCity[]
+
+  @@index([status, categoryId])
+  @@index([providerId])
+  @@map("services")
+}
+
+model ServiceCity {
+  serviceId String
+  cityId    String
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  city    City    @relation(fields: [cityId], references: [id], onDelete: Restrict)
+
+  @@id([serviceId, cityId])
+  @@index([cityId])
+  @@map("service_cities")
 }

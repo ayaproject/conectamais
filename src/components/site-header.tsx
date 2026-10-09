@@ -11,13 +11,14 @@ export async function SiteHeader() {
         <Link href="/" className="text-lg font-bold text-emerald-800">
           Conecta+
         </Link>
-        <div className="flex items-center gap-4 text-sm">
+        <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 text-sm">
+          <Link href="/servicos" className="hover:underline">Buscar serviços</Link>
           {principal ? (
             <>
               <Link href="/conta" className="hover:underline">Minha conta</Link>
               {hasRole(principal, "PROVIDER") && <Link href="/prestador" className="hover:underline">Área do prestador</Link>}
               {principal.permissions.length > 0 && hasRole(principal, "ADMIN") && (
-                <Link href="/admin/prestadores" className="hover:underline">Administração</Link>
+                <Link href="/admin" className="hover:underline">Administração</Link>
               )}
               <form action={signOutAction}>
                 <button type="submit" className="text-slate-600 hover:underline">Sair</button>
