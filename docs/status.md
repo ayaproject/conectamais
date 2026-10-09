@@ -1,6 +1,6 @@
 # Status da implementação
 
-Atualizado em 2026-10-09.
+Atualizado em 2026-10-09 (documentos e selo).
 
 ## Concluído e validado
 
@@ -13,17 +13,24 @@ Atualizado em 2026-10-09.
 | Permissões administrativas finas e bloqueio de acesso | testes de integração + e2e (cliente redirecionado) |
 | Histórico de status e auditoria | testes de integração |
 | Proteção contra decisões simultâneas | teste de integração |
+| Envio de documentos (PF: RG ou CNH; PJ: documentos da empresa + identidade do dono) | testes de integração + e2e |
+| Validação de arquivo pelo conteúdo, limite de 8 MB, acesso restrito e auditado | testes unitários, de integração + e2e (anônimo recebe 404) |
+| Análise de documentos e aprovação condicionada aos documentos aceitos | testes de integração + e2e |
+| Selo de prestador verificado com validade, critérios e histórico | testes de integração + e2e |
 | Layout responsivo | e2e em viewport de celular (Pixel 7) |
 
 ## Ainda não implementado (próximas etapas)
 
-- Upload de documentos de verificação e selo de verificado (Fase 4/5).
+- Renovação do selo antes do vencimento e aviso ao prestador (depende de notificações).
 - Categorias, serviços e busca (Fase 6).
 - Contratação, orçamentos, propostas, mensagens (Fases 7–8).
 - Pagamentos, comissão e repasses (Fase 9) — depende da escolha do provedor e de validação jurídica.
 - Avaliações, recomendações, notificações por e-mail, SEO (Fases 10–12).
 
 ## Pendências antes de produção
+
+- Bucket privado (Supabase Storage) para documentos: o armazenamento local é recusado em produção (ADR 0003).
+- Política de retenção dos documentos (por quanto tempo guardar após aprovação ou desativação).
 
 - Limite de tentativas de login e proteção contra automação.
 - Recuperação de senha e verificação de e-mail (depende de provedor de e-mail).

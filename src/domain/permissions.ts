@@ -1,7 +1,12 @@
 // Papéis e permissões administrativas. Regra pura, usada pela camada de acesso.
 
 export type Role = "CLIENT" | "PROVIDER" | "ADMIN";
-export type AdminPermission = "APPROVE_PROVIDERS" | "SUSPEND_PROVIDERS" | "READ_AUDIT_LOG" | "MANAGE_ADMINS";
+export type AdminPermission =
+  | "APPROVE_PROVIDERS"
+  | "SUSPEND_PROVIDERS"
+  | "VERIFY_DOCUMENTS"
+  | "READ_AUDIT_LOG"
+  | "MANAGE_ADMINS";
 
 export type Principal = {
   userId: string;
@@ -21,6 +26,7 @@ export function hasPermission(p: Principal, permission: AdminPermission): boolea
 export const ADMIN_PERMISSIONS: readonly AdminPermission[] = [
   "APPROVE_PROVIDERS",
   "SUSPEND_PROVIDERS",
+  "VERIFY_DOCUMENTS",
   "READ_AUDIT_LOG",
   "MANAGE_ADMINS",
 ];

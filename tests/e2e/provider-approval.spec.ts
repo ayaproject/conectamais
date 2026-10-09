@@ -26,7 +26,7 @@ test("prestador se cadastra, envia para análise e é aprovado pelo admin", asyn
 
   // Enviar incompleto é recusado
   await provider.getByRole("button", { name: "Enviar para análise" }).click();
-  await expect(provider.getByRole("alert").filter({ hasText: "Complete o perfil" })).toBeVisible();
+  await expect(provider.getByRole("alert").filter({ hasText: "Complete o cadastro" })).toBeVisible();
 
   await provider.getByLabel("Nome completo ou razão social").fill("Maria da Silva");
   await provider.getByLabel("Nome profissional ou nome fantasia").fill(`Maria Pinturas ${run}`);
@@ -35,6 +35,19 @@ test("prestador se cadastra, envia para análise e é aprovado pelo admin", asyn
   await provider.getByLabel("UF").fill("SC");
   await provider.getByRole("button", { name: "Salvar rascunho" }).click();
   await expect(provider.getByRole("status")).toContainText("Perfil salvo");
+
+  // Sem documento o envio é recusado
+  await provider.getByRole("button", { name: "Enviar para análise" }).click();
+  await expect(provider.getByRole("alert").filter({ hasText: "Envie: Documento de identidade" })).toBeVisible();
+
+  await provider.getByRole("radio", { name: "CNH", exact: true }).check();
+  await provider.getByLabel(/^Arquivo/).setInputFiles({
+    name: "cnh.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\n%%EOF\n"),
+  });
+  await provider.getByRole("button", { name: "Enviar documento" }).click();
+  await expect(provider.getByText("Aguardando análise")).toBeVisible();
   await provider.getByRole("button", { name: "Enviar para análise" }).click();
   await expect(provider.getByText("Em análise", { exact: true }).first()).toBeVisible();
 
@@ -45,16 +58,29 @@ test("prestador se cadastra, envia para análise e é aprovado pelo admin", asyn
   await expect(client).toHaveURL(/\/conta$/);
 
   // Concede permissão pelo script oficial e entra como admin
-  execSync(`npx tsx scripts/grant-admin.ts ${adminEmail} APPROVE_PROVIDERS`, { env: { ...process.env, DATABASE_URL: E2E_DB } });
+  execSync(`npx tsx scripts/grant-admin.ts ${adminEmail} APPROVE_PROVIDERS VERIFY_DOCUMENTS`, { env: { ...process.env, DATABASE_URL: E2E_DB } });
   await client.goto("/admin/prestadores");
   await client.getByRole("link", { name: `Maria Pinturas ${run}` }).click();
+
+  // O documento abre só para quem tem permissão
+  const doc = await client.request.get(await client.getByRole("link", { name: /Abrir cnh.pdf/ }).getAttribute("href") ?? "");
+  expect(doc.status()).toBe(200);
+  expect(doc.headers()["content-type"]).toBe("application/pdf");
+  const anonymous = await (await browser.newContext()).request.get(doc.url());
+  expect(anonymous.status()).toBe(404);
+
+  await client.getByRole("button", { name: "Aceitar documento" }).click();
+  await expect(client.getByText("Aceito", { exact: true })).toBeVisible();
   await client.getByRole("button", { name: "Aprovar" }).click();
   await expect(client.getByRole("status")).toContainText("Decisão registrada");
   await client.getByRole("link", { name: "Aprovado", exact: true }).click();
   await client.getByRole("link", { name: `Maria Pinturas ${run}` }).click();
   await expect(client.getByText(/Em análise → Aprovado por Admin/)).toBeVisible();
+  await client.getByRole("button", { name: "Conceder selo de verificado" }).click();
+  await expect(client.getByText(/Selo concedido por Admin/)).toBeVisible();
 
   // Prestador vê a aprovação
   await provider.reload();
   await expect(provider.getByText("Aprovado", { exact: true }).first()).toBeVisible();
+  await expect(provider.getByText("Documentos verificados")).toBeVisible();
 });
